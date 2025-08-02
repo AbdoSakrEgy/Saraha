@@ -1,0 +1,246 @@
+import { create, findOne, findOneAndUpdate } from "../../DB/DBservices.js";
+import userModel, { Providers } from "../../DB/models/user.model.js";
+import { decodeToken, tokenTypes } from "../../utils/decodeToken.js";
+import { compare } from "../../utils/bcrypt.js";
+import { successHandler } from "../../utils/success.handler.js";
+import jwt from "jsonwebtoken";
+import { sendEmail } from "../../utils/sendEmail/sendEmail.js";
+import { template } from "../../utils/sendEmail/generateHTML.js";
+import { createOtp } from "../../utils/otp.js";
+import { OAuth2Client } from "google-auth-library";
+const client = new OAuth2Client();
+
+// register
+export const register = async (req, res, next) => {
+  const { name, email, password, age, role, gender, phone } = req.body;
+  const user = await findOne(userModel, { email }); // {}||null
+  if (!user) {
+    if (name && email && password && phone) {
+      const otp = createOtp();
+      const user = await create(userModel, {
+        name,
+        email,
+        password,
+        age,
+        role,
+        gender,
+        phone,
+        emailOtp: {
+          otp,
+          expiredIn: Date.now() + 60 * 1000,
+        },
+      });
+      const payload = {
+        id: user._id,
+        email: user.email,
+      };
+      const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
+        expiresIn: "1 h",
+      });
+      const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
+        expiresIn: "7 d",
+      });
+      // Send email
+      // I see emailEmmiter and errorClass didn't add any thing usefull.
+      const html = template(otp, user.name, "Confirm email");
+      await sendEmail({ to: user.email, subject: "sarahaApp", html });
+      successHandler({ res, status: 201, data: { accessToken, refreshToken } });
+    } else {
+      return successHandler({
+        res,
+        status: 401,
+        message: "Invalid cradentails",
+      });
+    }
+  } else {
+    successHandler({
+      res,
+      status: 401,
+      message: "User already exist",
+      data: user,
+    });
+  }
+};
+
+// confirm email
+export const confirmEmail = async (req, res, next) => {
+  const { email, otp } = req.body;
+  const user = await findOne(userModel, { email });
+  if (user) {
+    if (compare(otp, user.emailOtp.otp)) {
+      if (Date.now() <= user.emailOtp.expiredIn) {
+        await findOneAndUpdate(userModel, { email }, { emailConfirmed: true });
+        successHandler({ res });
+      } else {
+        successHandler({ res, status: 401, message: "Expired otp" });
+      }
+    } else {
+      successHandler({ res, status: 401, message: "Invalid otp" });
+    }
+  } else {
+    successHandler({ res, status: 404, message: "User not found" });
+  }
+};
+
+// resend otp
+export const resendOtp = async (req, res, next) => {
+  const { email } = req.body;
+  const user = await findOne(userModel, { email });
+  if (user) {
+    let otpType = "emailOtp";
+    if (req.url.includes("password")) {
+      otpType = "passwordOtp";
+    }
+    const otp = createOtp();
+    const updatedUser = await findOneAndUpdate(
+      userModel,
+      { email },
+      {
+        [otpType]: {
+          otp,
+          expiredIn: Date.now() + 60 * 1000,
+        },
+      }
+    );
+    const html = template(otp, user.name, "OTP code");
+    sendEmail({ to: user.email, subject: "sarahaApp", html });
+    successHandler({ res, status: 200, message: "OTP sended" });
+  } else {
+    successHandler({ res, status: 404, message: "User not found" });
+  }
+};
+
+// login
+export const login = async (req, res, next) => {
+  const { email, password } = req.body;
+  const user = await findOne(userModel, { email }); // {}||null
+  if (user && compare(password, user.password)) {
+    if (user.provider == Providers.system) {
+      const payload = {
+        id: user._id,
+        email: user.email,
+      };
+      const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
+        expiresIn: `1 h`,
+      });
+      const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
+        expiresIn: "7 d",
+      });
+      successHandler({ res, status: 202, data: { accessToken, refreshToken } });
+    } else {
+      successHandler({
+        res,
+        status: 401,
+        message: "Social account login",
+      });
+    }
+  } else {
+    successHandler({ res, status: 401, message: "Invalid cradentials" });
+  }
+};
+
+// refresh token
+export const refreshToken = async (req, res, next) => {
+  const { authorization } = req.headers;
+  const user = await decodeToken(authorization, tokenTypes.refresh, next);
+  const accessToken = jwt.sign(
+    { id: user._id, email: user.email },
+    process.env.ACCESS_SEGNATURE,
+    { expiresIn: "1 h" }
+  );
+  successHandler({ res, data: { accessToken } });
+};
+
+// forget password
+export const forgetPassword = async (req, res, next) => {
+  const { email } = req.body;
+  if (email) {
+    const user = await findOne(userModel, { email });
+    if (user) {
+      const otp = createOtp();
+      const html = template(otp, user.name, "Forget password");
+      await sendEmail({ to: user.email, subject: "sarahaApp", html });
+      const updatedUser = await findOneAndUpdate(
+        userModel,
+        { email },
+        { passwordOtp: { otp, expiredIn: Date.now() + 60 * 1000 } }
+      );
+      successHandler({ res, status: 202, message: "OTP sended" });
+    } else {
+      successHandler({ res, status: 404, message: "User not found" });
+    }
+  } else {
+    successHandler({ res, status: 401, message: "Please send email" });
+  }
+};
+
+// change password
+export const changePassword = async (req, res, next) => {
+  const { email, otp, newPassword } = req.body;
+  if (email) {
+    const user = await findOne(userModel, { email });
+    if (user) {
+      if (compare(otp, user.passwordOtp.otp)) {
+        if (Date.now() <= user.passwordOtp.expiredIn) {
+          const updatedUser = await findOneAndUpdate(
+            userModel,
+            { email },
+            {
+              password: newPassword,
+              credentialsChangedAt: Date.now(),
+            }
+          );
+          successHandler({ res });
+        } else {
+          successHandler({ res, status: 401, message: "Expired otp" });
+        }
+      } else {
+        successHandler({ res, status: 401, message: "Invalid otp" });
+      }
+    } else {
+      successHandler({ res, status: 401, message: "User not found" });
+    }
+  } else {
+    successHandler({ res, status: 401, message: "Send email" });
+  }
+};
+
+// social login
+export const socialLogin = async (req, res, next) => {
+  const { idToken } = req.body;
+  const ticket = await client.verifyIdToken({
+    idToken,
+    audience: process.env.audience,
+  });
+  const { email, name } = ticket.getPayload();
+  let user = await findOne(userModel, { email });
+  if (!user) {
+    if (user.provider != Providers.system) {
+      user = await create(userModel, {
+        name,
+        email,
+        emailConfirmed: true,
+        provider: Providers.google,
+      });
+      const payload = {
+        id: user._id,
+        email: user.email,
+      };
+      const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
+        expiresIn: "1 h",
+      });
+      const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
+        expiresIn: "7 d",
+      });
+      successHandler({ res, status: 201, data: { accessToken, refreshToken } });
+    } else {
+      successHandler({
+        res,
+        status: 401,
+        message: "User system login",
+      });
+    }
+  } else {
+    successHandler({ res, status: 400, message: "User already exist" });
+  }
+};
