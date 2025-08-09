@@ -1,10 +1,18 @@
+const dataMethods = ["body", "headers", "params", "query"];
+
 export const validation = (schema) => {
   return (req, res, next) => {
-    const result = schema.body.validate(req.body, { abortEarly: false });
-    if (!result.error) {
+    const errors = [];
+    dataMethods.forEach((value) => {
+      const result = schema[value]?.validate(req[value], { abortEarly: false });
+      if (result?.error) {
+        errors.push(result.error);
+      }
+    });
+    if (!errors.length > 0) {
       return next();
     } else {
-      return next(new Error(result.error));
+      return next(new Error(errors));
     }
   };
 };

@@ -37,8 +37,6 @@ const schema = new Schema(
       type: Boolean,
       default: false,
     },
-    // What is the problem if I create just one field called otp and make resendOTP method modify it for otp email or otp password or any otp and after done make it empty
-    // This way make code more simple and readable
     emailOtp: {
       // Nested schema
       otp: {
