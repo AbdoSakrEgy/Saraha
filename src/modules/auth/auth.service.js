@@ -230,9 +230,103 @@ export const resendOtp = async (req, res, next) => {
       }
     );
     const html = template(otp, user.name, "OTP code");
-    sendEmail({ to: user.email, subject: "sarahaApp", html });
+    await sendEmail({ to: user.email, subject: "sarahaApp", html });
     successHandler({ res, status: 200, message: "OTP sended" });
   } else {
     successHandler({ res, status: 404, message: "User not found" });
+  }
+};
+
+// update email
+export const updateEmail = async (req, res, next) => {
+  const user = req.user;
+  const { newEmail } = req.body;
+  const isUserExist = await findOne(userModel, { email: newEmail });
+  if (!isUserExist) {
+    if (user.emailConfirmed) {
+      // Confirm updating proccess from old and new email
+      const otpForOldEmail = createOtp();
+      const otpForNewEmail = createOtp();
+      const htmlForOldEmail = template(
+        otpForOldEmail,
+        user.name,
+        "Someone try to change this email! Is that you?!"
+      );
+      const htmlForNewEmail = template(
+        otpForNewEmail,
+        user.name,
+        "Is this new email you want to use"
+      );
+      await sendEmail({
+        to: user.email,
+        subject: "Saraha APP",
+        html: htmlForOldEmail,
+      });
+      await sendEmail({
+        to: newEmail,
+        subject: "Saraha APP",
+        html: htmlForNewEmail,
+      });
+      const updatedUser = await findOneAndUpdate(
+        userModel,
+        { _id: user._id },
+        {
+          emailOtp: {
+            otp: otpForOldEmail,
+            expiredIn: Date.now() + 240 * 1000,
+          },
+          newEmail: newEmail,
+          newEmailOtp: {
+            otp: otpForNewEmail,
+            expiredIn: Date.now() + 240 * 1000,
+          },
+        }
+      );
+      return successHandler({
+        res,
+        message: "otp sended to old email and new email",
+      });
+    } else {
+      return successHandler({
+        res,
+        status: 400,
+        message: "Confirm email to update it",
+      });
+    }
+  } else {
+    return successHandler({
+      res,
+      status: 400,
+      message: "This email already used",
+    });
+  }
+};
+
+// update email confirmation
+export const updateEmailConfirmation = async (req, res, next) => {
+  const user = req.user;
+  const { otpForOldEmail, otpForNewEmail } = req.body;
+  if (
+    compare(otpForOldEmail, user.emailOtp.otp) &&
+    compare(otpForNewEmail, user.newEmailOtp.otp) &&
+    user.emailOtp.expiredIn > Date.now() &&
+    user.newEmailOtp.expiredIn > Date.now()
+  ) {
+    const updatedUser = await findOneAndUpdate(
+      userModel,
+      { _id: user._id },
+      {
+        email: user.newEmail,
+        emailOtp: null,
+        newEmail: null,
+        newEmailOtp: null,
+      }
+    );
+    return successHandler({
+      res,
+      message: "Email updated successfully",
+    });
+  } else {
+    return successHandler({ res, status: 400, message: "Invalid otp" });
   }
 };

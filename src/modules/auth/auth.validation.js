@@ -31,12 +31,6 @@ export const socialLoginSchema = {
   }).required(),
 };
 
-export const refreshTokenSchema = {
-  headers: Joi.object({
-    authorization: Joi.string().required(),
-  }).required(),
-};
-
 export const confirmEmailShcema = {
   body: Joi.object({
     email: Joi.string().email().required(),
@@ -62,4 +56,17 @@ export const resendOtpSchema = {
   body: Joi.object({
     email: Joi.string().email().required(),
   }).required(),
+};
+
+export const updateEmailSchema = {
+  body: Joi.object({
+    newEmail: Joi.string().email().required(),
+  }),
+};
+
+export const updateEmailConfirmationSchema = {
+  body: Joi.object({
+    otpForOldEmail: Joi.string().required(),
+    otpForNewEmail: Joi.string().required(),
+  }),
 };

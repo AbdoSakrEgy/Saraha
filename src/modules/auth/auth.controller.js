@@ -1,15 +1,17 @@
 import { Router } from "express";
 import * as authServices from "./auth.service.js";
 import { validation } from "../../middlewares/validation.middleware.js";
+import { auth } from "../../middlewares/auth.middleware.js";
 import {
   changePasswordSchema,
   confirmEmailShcema,
   forgetPasswordSchema,
   loginSchema,
-  refreshTokenSchema,
   registerSchema,
   resendOtpSchema,
   socialLoginSchema,
+  updateEmailConfirmationSchema,
+  updateEmailSchema,
 } from "./auth.validation.js";
 const router = Router();
 
@@ -21,11 +23,7 @@ router.post(
   authServices.socialLogin
 );
 
-router.post(
-  "/refresh-token",
-  validation(refreshTokenSchema),
-  authServices.refreshToken
-);
+router.post("/refresh-token", authServices.refreshToken);
 
 router.post(
   "/confirm-email",
@@ -51,6 +49,18 @@ router.post(
   "/resend-password-otp",
   validation(resendOtpSchema),
   authServices.resendOtp
+);
+router.patch(
+  "/update-email",
+  auth(),
+  validation(updateEmailSchema),
+  authServices.updateEmail
+);
+router.patch(
+  "/update-email-confirmation",
+  auth(),
+  validation(updateEmailConfirmationSchema),
+  authServices.updateEmailConfirmation
 );
 
 export default router;

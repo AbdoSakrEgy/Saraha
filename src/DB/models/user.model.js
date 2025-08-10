@@ -45,6 +45,19 @@ const schema = new Schema(
       },
       expiredIn: Date,
     },
+    newEmail: {
+      type: String,
+      min: 4,
+      max: 50,
+      unique: true,
+    },
+    newEmailOtp: {
+      otp: {
+        type: String,
+        set: (value) => hash(value),
+      },
+      expiredIn: Date,
+    },
     password: {
       type: String,
       required: function () {
@@ -81,10 +94,18 @@ const schema = new Schema(
         return this.provider == Providers.system ? true : false;
       },
       set: (value) => {
-        return encryption(value);
+        if (value) {
+          return encryption(value);
+        } else {
+          return value;
+        }
       },
       get: (value) => {
-        return decryption(value);
+        if (value) {
+          return decryption(value);
+        } else {
+          return value;
+        }
       },
     },
     credentialsChangedAt: {
