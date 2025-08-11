@@ -12,6 +12,7 @@ import {
   socialLoginSchema,
   updateEmailConfirmationSchema,
   updateEmailSchema,
+  updatePasswordSchema,
 } from "./auth.validation.js";
 const router = Router();
 
@@ -35,10 +36,16 @@ router.post(
   validation(forgetPasswordSchema),
   authServices.forgetPassword
 );
-router.post(
+router.patch(
   "/change-password",
   validation(changePasswordSchema),
   authServices.changePassword
+);
+router.patch(
+  "/update-password",
+  auth(),
+  validation(updatePasswordSchema),
+  authServices.updatePassword
 );
 router.post(
   "/resend-email-otp",

@@ -26,3 +26,13 @@ export const updateUserSchema = {
     }),
   }),
 };
+
+export const softDeleteSchema = {
+  params: Joi.object({
+    id: Joi.custom((value, helpers) => {
+      if (isValidObjectId(value)) {
+        return value;
+      }
+    }),
+  }),
+};

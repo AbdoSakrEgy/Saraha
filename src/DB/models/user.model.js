@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import { model, Schema, Types } from "mongoose";
 import { decryption, encryption } from "../../utils/crypto.js";
 import { hash } from "../../utils/bcrypt.js";
 
@@ -49,7 +49,6 @@ const schema = new Schema(
       type: String,
       min: 4,
       max: 50,
-      unique: true,
     },
     newEmailOtp: {
       otp: {
@@ -77,6 +76,14 @@ const schema = new Schema(
       },
       expiredIn: Date,
     },
+    pastPasswords: [
+      {
+        type: String,
+        set: (value) => {
+          return hash(value);
+        },
+      },
+    ],
     age: Number,
     role: {
       type: String,
@@ -115,6 +122,13 @@ const schema = new Schema(
       type: String,
       enum: Object.values(Providers),
       default: Providers.system,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    deletedBy: {
+      type: Types.ObjectId,
     },
   },
   {

@@ -59,24 +59,32 @@ export const login = async (req, res, next) => {
   const { email, password } = req.body;
   const user = await findOne(userModel, { email }); // {}||null
   if (user && compare(password, user.password)) {
-    if (user.provider == Providers.system) {
-      const payload = {
-        id: user._id,
-        email: user.email,
-      };
-      const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
-        expiresIn: `1 h`,
-      });
-      const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
-        expiresIn: "7 d",
-      });
-      successHandler({ res, status: 202, data: { accessToken, refreshToken } });
+    if (user.isActive) {
+      if (user.provider == Providers.system) {
+        const payload = {
+          id: user._id,
+          email: user.email,
+        };
+        const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
+          expiresIn: `1 h`,
+        });
+        const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
+          expiresIn: "7 d",
+        });
+        successHandler({
+          res,
+          status: 202,
+          data: { accessToken, refreshToken },
+        });
+      } else {
+        successHandler({
+          res,
+          status: 401,
+          message: "Social account login",
+        });
+      }
     } else {
-      successHandler({
-        res,
-        status: 401,
-        message: "Social account login",
-      });
+      successHandler({ res, status: 400, message: "This account is deleted" });
     }
   } else {
     successHandler({ res, status: 401, message: "Invalid credentials" });
@@ -93,30 +101,38 @@ export const socialLogin = async (req, res, next) => {
   const { email, name } = ticket.getPayload();
   let user = await findOne(userModel, { email });
   if (!user) {
-    if (user.provider != Providers.system) {
-      user = await create(userModel, {
-        name,
-        email,
-        emailConfirmed: true,
-        provider: Providers.google,
-      });
-      const payload = {
-        id: user._id,
-        email: user.email,
-      };
-      const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
-        expiresIn: "1 h",
-      });
-      const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
-        expiresIn: "7 d",
-      });
-      successHandler({ res, status: 201, data: { accessToken, refreshToken } });
+    if (user.isActive) {
+      if (user.provider != Providers.system) {
+        user = await create(userModel, {
+          name,
+          email,
+          emailConfirmed: true,
+          provider: Providers.google,
+        });
+        const payload = {
+          id: user._id,
+          email: user.email,
+        };
+        const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
+          expiresIn: "1 h",
+        });
+        const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
+          expiresIn: "7 d",
+        });
+        successHandler({
+          res,
+          status: 201,
+          data: { accessToken, refreshToken },
+        });
+      } else {
+        successHandler({
+          res,
+          status: 401,
+          message: "User system login",
+        });
+      }
     } else {
-      successHandler({
-        res,
-        status: 401,
-        message: "User system login",
-      });
+      successHandler({ res, status: 400, message: "This account is deleted" });
     }
   } else {
     successHandler({ res, status: 400, message: "User already exist" });
@@ -194,7 +210,10 @@ export const changePassword = async (req, res, next) => {
               credentialsChangedAt: Date.now(),
             }
           );
-          successHandler({ res });
+          successHandler({
+            res,
+            message: "Password changed successfully, Please login again",
+          });
         } else {
           successHandler({ res, status: 401, message: "Expired otp" });
         }
@@ -206,6 +225,45 @@ export const changePassword = async (req, res, next) => {
     }
   } else {
     successHandler({ res, status: 401, message: "Send email" });
+  }
+};
+
+// update password
+export const updatePassword = async (req, res, next) => {
+  const user = req.user;
+  const { currentPassword, newPassword } = req.body;
+
+  if (compare(currentPassword, user.password)) {
+    for (let value of user.pastPasswords) {
+      if (compare(newPassword, value)) {
+        successHandler({
+          res,
+          status: 400,
+          message: "This password used befor",
+        });
+      }
+    }
+    const arrOfPastPass = user.pastPasswords;
+    arrOfPastPass.push(currentPassword);
+    const updatedUser = await findOneAndUpdate(
+      userModel,
+      { _id: user._id },
+      {
+        password: newPassword,
+        pastPasswords: arrOfPastPass,
+        credentialsChangedAt: Date.now(),
+      }
+    );
+    successHandler({
+      res,
+      message: "Password updated successfully, Please login again",
+    });
+  } else {
+    successHandler({
+      res,
+      status: 400,
+      message: "Current password is incorrect",
+    });
   }
 };
 
@@ -317,9 +375,6 @@ export const updateEmailConfirmation = async (req, res, next) => {
       { _id: user._id },
       {
         email: user.newEmail,
-        emailOtp: null,
-        newEmail: null,
-        newEmailOtp: null,
       }
     );
     return successHandler({

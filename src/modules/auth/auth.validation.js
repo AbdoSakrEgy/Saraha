@@ -3,7 +3,7 @@ import { Gender, Roles } from "../../DB/models/user.model.js";
 
 export const registerSchema = {
   body: Joi.object({
-    name: Joi.string().min(4).max(50).required(),
+    name: Joi.string().min(3).max(50).required(),
     email: Joi.string().min(4).max(50).email().required(),
     password: Joi.string().min(3).max(50),
     confirmPassword: Joi.string().valid(Joi.ref("password")).required(),
@@ -48,6 +48,13 @@ export const changePasswordSchema = {
   body: Joi.object({
     email: Joi.string().email().required(),
     otp: Joi.string().required(),
+    newPassword: Joi.string().required(),
+  }).required(),
+};
+
+export const updatePasswordSchema = {
+  body: Joi.object({
+    currentPassword: Joi.string().required(),
     newPassword: Joi.string().required(),
   }).required(),
 };
