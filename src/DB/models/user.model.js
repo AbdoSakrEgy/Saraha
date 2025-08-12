@@ -131,6 +131,10 @@ const schema = new Schema(
       type: Types.ObjectId,
     },
     profileImage: String,
+    sendOtpAttempts: {
+      attempts: Number,
+      bannedAt: Date,
+    },
   },
   {
     timestamps: true,

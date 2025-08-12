@@ -27,7 +27,7 @@ export const register = async (req, res, next) => {
       phone,
       emailOtp: {
         otp,
-        expiredIn: Date.now() + 60 * 1000,
+        expiredIn: Date.now() + 120 * 1000,
       },
     });
     const payload = {
@@ -152,20 +152,64 @@ export const refreshToken = async (req, res, next) => {
   successHandler({ res, data: { accessToken } });
 };
 
+// TODO:1 Implement a verfication code for email confirmation
+// TODO:2 Expired after 2 minutes
+// TODO:3 Allow maximum of 5 failed attempts to use the code
+// TODO:4 After 5 failed attempts, user banned for 5 minutes for requesting a new code
+// TODO:5 Reset the failed attemtps count after 5 minutes
 // confirm email
 export const confirmEmail = async (req, res, next) => {
   const { email, otp } = req.body;
   const user = await findOne(userModel, { email });
   if (user) {
-    if (compare(otp, user.emailOtp.otp)) {
-      if (Date.now() <= user.emailOtp.expiredIn) {
-        await findOneAndUpdate(userModel, { email }, { emailConfirmed: true });
-        successHandler({ res });
+    if (
+      !user.sendOtpAttempts.bannedAt ||
+      user.sendOtpAttempts.bannedAt + 350 * 1000 < Date.now()
+    ) {
+      if (compare(otp, user.emailOtp.otp)) {
+        if (Date.now() <= user.emailOtp.expiredIn) {
+          await findOneAndUpdate(
+            userModel,
+            { email },
+            { emailConfirmed: true }
+          );
+          successHandler({ res });
+        } else {
+          successHandler({ res, status: 401, message: "Expired otp" });
+        }
       } else {
-        successHandler({ res, status: 401, message: "Expired otp" });
+        if (user.sendOtpAttempts.attempts < 4) {
+          await findOneAndUpdate(
+            userModel,
+            { email },
+            {
+              $set: {
+                "sendOtpAttempts.attempts": user.sendOtpAttempts.attempts + 1,
+              },
+            }
+          );
+        } else {
+          await findOneAndUpdate(
+            userModel,
+            { email },
+            {
+              sendOtpAttempts: {
+                attempts: 0,
+                bannedAt: Date.now(),
+              },
+            }
+          );
+        }
+        successHandler({ res, status: 401, message: "Invalid otp" });
       }
     } else {
-      successHandler({ res, status: 401, message: "Invalid otp" });
+      successHandler({
+        res,
+        status: 400,
+        message: `Try after ${
+          user.sendOtpAttempts.bannedAt + 350 * 1000 - Date.now()
+        }`,
+      });
     }
   } else {
     successHandler({ res, status: 404, message: "User not found" });
@@ -268,29 +312,47 @@ export const updatePassword = async (req, res, next) => {
   }
 };
 
+// TODO:1 Implement a verfication code for email confirmation
+// TODO:2 Expired after 2 minutes
+// TODO:3 Allow maximum of 5 failed attempts to use the code
+// TODO:4 After 5 failed attempts, user banned for 5 minutes for requesting a new code
+// TODO:5 Reset the failed attemtps count after 5 minutes
 // resend otp
 export const resendOtp = async (req, res, next) => {
   const { email } = req.body;
   const user = await findOne(userModel, { email });
   if (user) {
-    let otpType = "emailOtp";
-    if (req.url.includes("password")) {
-      otpType = "passwordOtp";
-    }
-    const otp = createOtp();
-    const updatedUser = await findOneAndUpdate(
-      userModel,
-      { email },
-      {
-        [otpType]: {
-          otp,
-          expiredIn: Date.now() + 60 * 1000,
-        },
+    if (
+      !user.sendOtpAttempts.bannedAt ||
+      user.sendOtpAttempts.bannedAt + 350 * 1000 < Date.now()
+    ) {
+      let otpType = "emailOtp";
+      if (req.url.includes("password")) {
+        otpType = "passwordOtp";
       }
-    );
-    const html = template(otp, user.name, "OTP code");
-    await sendEmail({ to: user.email, subject: "sarahaApp", html });
-    successHandler({ res, status: 200, message: "OTP sended" });
+      const otp = createOtp();
+      const updatedUser = await findOneAndUpdate(
+        userModel,
+        { email },
+        {
+          [otpType]: {
+            otp,
+            expiredIn: Date.now() + 120 * 1000,
+          },
+        }
+      );
+      const html = template(otp, user.name, "OTP code");
+      await sendEmail({ to: user.email, subject: "sarahaApp", html });
+      successHandler({ res, status: 200, message: "OTP sended" });
+    } else {
+      successHandler({
+        res,
+        status: 400,
+        message: `Try after ${
+          user.sendOtpAttempts.bannedAt + 350 * 1000 - Date.now()
+        }`,
+      });
+    }
   } else {
     successHandler({ res, status: 404, message: "User not found" });
   }
