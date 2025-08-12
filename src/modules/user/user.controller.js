@@ -10,9 +10,9 @@ import {
   updateUserSchema,
   userProfileSchema,
 } from "./user.validation.js";
+import { uploadFile } from "../../utils/multer/multer.js";
 const router = Router();
 
-// ! How can auth() middleware not be used for user-profile API
 router.get(
   "/user-profile/:id",
   // auth(),
@@ -45,6 +45,12 @@ router.get(
   auth(),
   validation(softDeleteSchema),
   userServices.restoreAccount
+);
+router.post(
+  "/upload-image",
+  auth(),
+  uploadFile().single("image"),
+  userServices.uploadImage
 );
 
 export default router;

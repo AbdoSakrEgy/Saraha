@@ -11,7 +11,18 @@ export const userProfile = async (req, res, next) => {
   const { id } = req.params;
   const user = await findOne(userModel, { _id: id });
   if (user) {
-    successHandler({ res, status: 200, data: user });
+    successHandler({
+      res,
+      status: 200,
+      data: {
+        name: user.name,
+        email: user.email,
+        age: user.age,
+        gender: user.gender,
+        phone: user.phone,
+        profileImage: `${req.protocol}://${req.host}/${user.profileImage}`,
+      },
+    });
   } else {
     successHandler({ res, status: 404, message: "User not found" });
   }
@@ -134,4 +145,19 @@ export const restoreAccount = async (req, res, next) => {
   } else {
     successHandler({ res, status: 404, message: "User not found" });
   }
+};
+
+// uploadImage
+export const uploadImage = async (req, res, next) => {
+  const user = req.user;
+  const profileImage = req.dest + "/" + req.file.filename;
+
+  const updatedUser = await findOneAndUpdate(
+    userModel,
+    { _id: user._id },
+    {
+      profileImage,
+    }
+  );
+  successHandler({ res });
 };

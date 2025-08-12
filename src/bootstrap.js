@@ -7,6 +7,7 @@ import cors from "cors";
 const bootstrap = async (express, app) => {
   await DBconnection();
 
+  app.use("/uploads", express.static("./uploads"));
   app.use(cors());
   app.use(express.json());
   app.use("/auth", authRouter);

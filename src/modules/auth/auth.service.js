@@ -10,6 +10,7 @@ import { createOtp } from "../../utils/otp.js";
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client();
 
+// ! One account soft deleted, and trying to register new account with the same email. What logic should i do.
 // register
 export const register = async (req, res, next) => {
   const { name, email, password, age, role, gender, phone } = req.body;

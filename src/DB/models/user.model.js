@@ -130,6 +130,7 @@ const schema = new Schema(
     deletedBy: {
       type: Types.ObjectId,
     },
+    profileImage: String,
   },
   {
     timestamps: true,
