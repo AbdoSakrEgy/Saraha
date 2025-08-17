@@ -9,8 +9,9 @@ import { template } from "../../utils/sendEmail/generateHTML.js";
 import { createOtp } from "../../utils/otp.js";
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client();
+import { nanoid } from "nanoid";
+import revokeTokenModel from "../../DB/models/revokeToken.model.js";
 
-// ! One account soft deleted, and trying to register new account with the same email. What logic should i do.
 // register
 export const register = async (req, res, next) => {
   const { name, email, password, age, role, gender, phone } = req.body;
@@ -34,14 +35,16 @@ export const register = async (req, res, next) => {
       id: user._id,
       email: user.email,
     };
+    const jwtid = nanoid();
     const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
       expiresIn: "1 h",
+      jwtid,
     });
     const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
       expiresIn: "7 d",
+      jwtid,
     });
     // Send email
-    // I see emailEmmiter and errorClass didn't add any thing usefull.
     const html = template(otp, user.name, "Confirm email");
     await sendEmail({ to: user.email, subject: "sarahaApp", html });
     successHandler({ res, status: 201, data: { accessToken, refreshToken } });
@@ -66,11 +69,14 @@ export const login = async (req, res, next) => {
           id: user._id,
           email: user.email,
         };
+        const jwtid = nanoid();
         const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
           expiresIn: `1 h`,
+          jwtid,
         });
         const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
           expiresIn: "7 d",
+          jwtid,
         });
         successHandler({
           res,
@@ -92,6 +98,7 @@ export const login = async (req, res, next) => {
   }
 };
 
+// ! Miss understand the logic of this method
 // social login
 export const socialLogin = async (req, res, next) => {
   const { idToken } = req.body;
@@ -103,7 +110,7 @@ export const socialLogin = async (req, res, next) => {
   let user = await findOne(userModel, { email });
   if (!user) {
     if (user.isActive) {
-      if (user.provider != Providers.system) {
+      if (user.provider == Providers.google) {
         user = await create(userModel, {
           name,
           email,
@@ -143,11 +150,15 @@ export const socialLogin = async (req, res, next) => {
 // refresh token
 export const refreshToken = async (req, res, next) => {
   const { authorization } = req.headers;
-  const user = await decodeToken(authorization, tokenTypes.refresh, next);
+  const { user, payload } = await decodeToken(
+    authorization,
+    tokenTypes.refresh,
+    next
+  );
   const accessToken = jwt.sign(
     { id: user._id, email: user.email },
     process.env.ACCESS_SEGNATURE,
-    { expiresIn: "1 h" }
+    { expiresIn: "1 h", jwtid: payload.jti }
   );
   successHandler({ res, data: { accessToken } });
 };
@@ -447,4 +458,27 @@ export const updateEmailConfirmation = async (req, res, next) => {
   } else {
     return successHandler({ res, status: 400, message: "Invalid otp" });
   }
+};
+
+// ! Why wee used userId in revokeTokenModel?
+// logout
+export const logout = async (req, res, next) => {
+  const user = req.user;
+  const payload = req.payload;
+  const revokeToken = await create(revokeTokenModel, {
+    jti: payload.jti,
+    userId: user._id,
+    expiredIn: payload.iat + 7 * 24 * 60 * 60, // payload.iat return time by seconds not ms
+  });
+  successHandler({ res, message: "Logged out done" });
+};
+
+export const logoutFromAllDevices = async (req, res, next) => {
+  const user = req.user;
+  const updatedUser = findOneAndUpdate(
+    userModel,
+    { _id: user._id },
+    { credentialsChangedAt: Date.now() }
+  );
+  successHandler({ res, message: "Logged out from all devices successfully" });
 };

@@ -69,5 +69,11 @@ router.patch(
   validation(updateEmailConfirmationSchema),
   authServices.updateEmailConfirmation
 );
+router.post("/logout", auth(), authServices.logout);
+router.post(
+  "/logout-from-all-devices",
+  auth(),
+  authServices.logoutFromAllDevices
+);
 
 export default router;
