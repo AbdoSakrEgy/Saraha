@@ -121,11 +121,14 @@ export const socialLogin = async (req, res, next) => {
           id: user._id,
           email: user.email,
         };
+        const jwtid = nanoid();
         const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
           expiresIn: "1 h",
+          jwtid,
         });
         const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
           expiresIn: "7 d",
+          jwtid,
         });
         successHandler({
           res,
@@ -460,7 +463,6 @@ export const updateEmailConfirmation = async (req, res, next) => {
   }
 };
 
-// ! Why wee used userId in revokeTokenModel?
 // logout
 export const logout = async (req, res, next) => {
   const user = req.user;

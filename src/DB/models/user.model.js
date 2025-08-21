@@ -130,10 +130,25 @@ const schema = new Schema(
     deletedBy: {
       type: Types.ObjectId,
     },
-    profileImage: String,
-    sendOtpAttempts: {
-      attempts: Number,
-      bannedAt: Date,
+    //* For local storage
+    // profileImage: String,
+    // sendOtpAttempts: {
+    //   attempts: Number,
+    //   bannedAt: Date,
+    // },
+    //* For cloud storage
+    profileImage: {
+      public_id: String,
+      secure_url: String,
+    },
+    coverImages: {
+      // next code mean type  array of  {public_id: String,secure_url: String}
+      type: [
+        {
+          public_id: String,
+          secure_url: String,
+        },
+      ],
     },
   },
   {

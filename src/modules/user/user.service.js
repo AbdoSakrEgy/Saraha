@@ -4,7 +4,15 @@ import {
   findOneAndUpdate,
 } from "../../DB/DBservices.js";
 import userModel, { Roles } from "../../DB/models/user.model.js";
+import { cloudConfig } from "../../utils/multer/cloudinary.js";
 import { successHandler } from "../../utils/success.handler.js";
+import {
+  deleteByPrefix,
+  deleteFolder,
+  destroyManyFiles,
+  destroySingleFile,
+  uploadSingleFile,
+} from "../../utils/multer/cloudinary.services.js";
 
 // userProfile
 export const userProfile = async (req, res, next) => {
@@ -20,7 +28,8 @@ export const userProfile = async (req, res, next) => {
         age: user.age,
         gender: user.gender,
         phone: user.phone,
-        profileImage: `${req.protocol}://${req.host}/${user.profileImage}`,
+        profileImage: user.profileImage.secure_url,
+        coverImages: user.coverImages,
       },
     });
   } else {
@@ -95,6 +104,22 @@ export const hardDelete = async (req, res, next) => {
   if (targetUser) {
     if (loggedInUser._id == id || loggedInUser.role == Roles.admin) {
       await findOneAndDelete(userModel, { _id: id });
+      try {
+        // delete user files in cloudinary
+        await deleteByPrefix({
+          storagePathOnCloudinary: `users/${id}/cover`,
+        });
+        // delete user folders in cloudinary, if folder has files the code will return error
+        await deleteFolder({
+          storagePathOnCloudinary: `users/${id}`,
+        });
+      } catch (err) {
+        successHandler({
+          res,
+          message: "Error from cloudinary deleting",
+          data: err,
+        });
+      }
       successHandler({ res, message: "User deleted successfully" });
     } else {
       successHandler({
@@ -147,10 +172,10 @@ export const restoreAccount = async (req, res, next) => {
   }
 };
 
-// uploadImage
-export const uploadImage = async (req, res, next) => {
+// localUpload
+export const localUpload = async (req, res, next) => {
   const user = req.user;
-  const profileImage = req.dest + "/" + req.file.filename;
+  const profileImage = req.file.destination + "/" + req.file.filename;
 
   const updatedUser = await findOneAndUpdate(
     userModel,
@@ -159,5 +184,74 @@ export const uploadImage = async (req, res, next) => {
       profileImage,
     }
   );
-  successHandler({ res });
+  successHandler({
+    res,
+    message: "Image uploaded done",
+    data: { profileImage },
+  });
+};
+
+// cloudUpload
+export const cloudUpload = async (req, res, next) => {
+  const user = req.user;
+  const file = req.file;
+  // delete old profileImage
+  if (user.profileImage?.public_id) {
+    await destroySingleFile({ public_id: user.profileImage.public_id });
+  }
+  const { public_id, secure_url } = await uploadSingleFile({
+    fileLocation: file.path,
+    storagePathOnCloudinary: `${process.env.APP_NAME}/users/${user._id}/profile`,
+  });
+
+  await findOneAndUpdate(
+    userModel,
+    { _id: user._id },
+    {
+      profileImage: {
+        public_id,
+        secure_url,
+      },
+    }
+  );
+
+  successHandler({ res, data: user });
+};
+
+// cloudUpload_many
+export const cloudUpload_many = async (req, res, next) => {
+  const user = req.user;
+  const coverImages = [];
+  for (const file of req.files) {
+    const { public_id, secure_url } = await uploadSingleFile({
+      fileLocation: file.path,
+      storagePathOnCloudinary: `users/${user._id}/cover`,
+    });
+    coverImages.push({ public_id, secure_url });
+  }
+  const updatedUser = await findOneAndUpdate(
+    userModel,
+    { _id: user._id },
+    {
+      coverImages,
+    }
+  );
+
+  return successHandler({
+    res,
+    message: "Cover images uploaded successfully",
+    data: coverImages,
+  });
+};
+
+// cloudRemove_many
+export const cloudRemove_many = async (req, res, next) => {
+  const user = req.user;
+  const public_ids = [];
+  for (const item of user.coverImages) {
+    public_ids.push(item.public_id);
+  }
+  const results = await destroyManyFiles({ public_ids });
+
+  successHandler({ res, message: "Files removed successfully", data: results });
 };

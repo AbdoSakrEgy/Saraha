@@ -1,4 +1,4 @@
-const dataMethods = ["body",  "params", "query"];
+const dataMethods = ["body", "params", "query", "file"];
 
 export const validation = (schema) => {
   return (req, res, next) => {

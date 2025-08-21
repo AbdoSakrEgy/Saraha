@@ -35,7 +35,7 @@ export const decodeToken = async (
       if (user) {
         if (user.credentialsChangedAt) {
           if (user.credentialsChangedAt.getTime() <= payload.iat * 1000) {
-            return user;
+            return { user, payload };
           } else {
             return next(new Error("You have to login again"));
           }

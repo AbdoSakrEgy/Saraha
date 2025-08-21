@@ -8,9 +8,14 @@ import { validation } from "../../middlewares/validation.middleware.js";
 import {
   softDeleteSchema,
   updateUserSchema,
+  uploadImageSchema,
   userProfileSchema,
 } from "./user.validation.js";
-import { uploadFile } from "../../utils/multer/multer.js";
+import {
+  fileTypes,
+  multer_localUpload,
+} from "../../utils/multer/multer.local.js";
+import { multer_cloudUpload } from "../../utils/multer/multer.cloud.js";
 const router = Router();
 
 router.get(
@@ -46,11 +51,29 @@ router.get(
   validation(softDeleteSchema),
   userServices.restoreAccount
 );
-router.post(
-  "/upload-image",
+router.patch(
+  "/local-upload",
   auth(),
-  uploadFile().single("image"),
-  userServices.uploadImage
+  multer_localUpload({ type: fileTypes.image }).single("image"),
+  // validation(uploadImageSchema), //! Useless validation, Because if user add valid or invalid img, it will be added to server
+  userServices.localUpload
 );
-
+router.patch(
+  "/cloud-upload",
+  auth(),
+  multer_cloudUpload({ type: fileTypes.image }).single("image"),
+  userServices.cloudUpload
+);
+router.patch(
+  "/cloud-upload-many",
+  auth(),
+  multer_cloudUpload({ type: fileTypes.image }).array("images", 3),
+  userServices.cloudUpload_many
+);
+router.patch(
+  "/cloud-remove-many",
+  auth(),
+  multer_cloudUpload({}).array("images"),
+  userServices.cloudRemove_many
+);
 export default router;
