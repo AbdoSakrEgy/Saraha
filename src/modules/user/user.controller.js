@@ -9,6 +9,7 @@ import {
   softDeleteSchema,
   updateUserSchema,
   uploadImageSchema,
+  uploadImagesSchema,
   userProfileSchema,
 } from "./user.validation.js";
 import {
@@ -16,8 +17,10 @@ import {
   multer_localUpload,
 } from "../../utils/multer/multer.local.js";
 import { multer_cloudUpload } from "../../utils/multer/multer.cloud.js";
+import messageRouter from "../../modules/message/message.controller.js";
 const router = Router();
 
+router.use("/user-profile/:id/messages", messageRouter);
 router.get(
   "/user-profile/:id",
   // auth(),
@@ -55,25 +58,27 @@ router.patch(
   "/local-upload",
   auth(),
   multer_localUpload({ type: fileTypes.image }).single("image"),
-  // validation(uploadImageSchema), //! Useless validation, Because if user add valid or invalid img, it will be added to server
+  validation(uploadImageSchema), //! Useless validation, Because if user add valid or invalid img, however it will not added to DB it will added to server
   userServices.localUpload
 );
 router.patch(
   "/cloud-upload",
   auth(),
   multer_cloudUpload({ type: fileTypes.image }).single("image"),
+  validation(uploadImageSchema),
   userServices.cloudUpload
 );
 router.patch(
   "/cloud-upload-many",
   auth(),
   multer_cloudUpload({ type: fileTypes.image }).array("images", 3),
+  validation(uploadImagesSchema),
   userServices.cloudUpload_many
 );
 router.patch(
   "/cloud-remove-many",
   auth(),
-  multer_cloudUpload({}).array("images"),
+  multer_cloudUpload({}).array("images", 3),
   userServices.cloudRemove_many
 );
 export default router;

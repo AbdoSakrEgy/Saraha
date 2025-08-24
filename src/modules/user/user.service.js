@@ -175,18 +175,18 @@ export const restoreAccount = async (req, res, next) => {
 // localUpload
 export const localUpload = async (req, res, next) => {
   const user = req.user;
-  const profileImage = req.file.destination + "/" + req.file.filename;
+  const file = req.file;
 
   const updatedUser = await findOneAndUpdate(
     userModel,
     { _id: user._id },
     {
-      profileImage,
+      profileImage: file.path,
     }
   );
   successHandler({
     res,
-    message: "Image uploaded done",
+    message: "Image uploaded successfully",
     data: { profileImage },
   });
 };
@@ -221,8 +221,9 @@ export const cloudUpload = async (req, res, next) => {
 // cloudUpload_many
 export const cloudUpload_many = async (req, res, next) => {
   const user = req.user;
+  const files = req.files;
   const coverImages = [];
-  for (const file of req.files) {
+  for (const file of files) {
     const { public_id, secure_url } = await uploadSingleFile({
       fileLocation: file.path,
       storagePathOnCloudinary: `users/${user._id}/cover`,

@@ -13,7 +13,7 @@ const schema = new Schema(
     },
     userId: {
       type: Types.ObjectId,
-      ref: "user",
+      ref: "users",
       required: true,
     },
   },

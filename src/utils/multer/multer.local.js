@@ -9,7 +9,7 @@ export const fileTypes = {
  *   This method work as middleware, work once for each single file uploaded,
  *   so "file" argument is object of file info not array of files,
  *   //file =          {fieldname,originalname,encoding,mimetype}
- *   after this method finish it add "file" or "files" property to "req"
+ *   after this method finish it ==store file== and ==add"file"or"files"propertyTo"req"==
  *   //file or files = {fieldname,originalname,encoding,mimetype,destination,filename,path,size} || [{...}]
  *    fieldname => name of field sended from body
  *    orignalname => orignal name of sended file

@@ -3,10 +3,13 @@ import userRouter from "./modules/user/user.controller.js";
 import messageRouter from "./modules/message/message.controller.js";
 import { DBconnection } from "./DB/connection.js";
 import cors from "cors";
+import chalk from "chalk";
+import morgan from "morgan";
 
 const bootstrap = async (express, app) => {
   await DBconnection();
 
+  app.use(morgan('combined'))
   app.use("/uploads", express.static("./uploads"));
   app.use(cors());
   app.use(express.json());
@@ -20,7 +23,7 @@ const bootstrap = async (express, app) => {
   });
 
   app.listen(process.env.PORT, () => {
-    console.log("Backend server is running.");
+    console.log(chalk.bgRed.yellow.italic("Backend server is running."));
     console.log(
       "==========================================================================="
     );

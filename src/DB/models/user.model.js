@@ -174,6 +174,13 @@ const schema = new Schema(
   }
 );
 
+// vertuial field
+schema.virtual("messages", {
+  localField: "_id",
+  foreignField: "to",
+  ref: "messages",
+});
+
 const userModel = model("users", schema);
 
 export default userModel;

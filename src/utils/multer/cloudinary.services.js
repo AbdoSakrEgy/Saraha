@@ -16,6 +16,22 @@ export const uploadSingleFile = async ({
   return { public_id, secure_url };
 };
 
+// uploadManyFiles
+export const uploadManyFiles = async ({
+  fileLocation = [],
+  storagePathOnCloudinary,
+}) => {
+  let images = [];
+  for (const item of fileLocation) {
+    const { public_id, secure_url } = await uploadSingleFile({
+      fileLocation: item,
+      storagePathOnCloudinary,
+    });
+    images.push({ public_id, secure_url });
+  }
+  return images;
+};
+
 // destroySingleFile
 export const destroySingleFile = async ({ public_id }) => {
   await cloudConfig().uploader.destroy(public_id);
