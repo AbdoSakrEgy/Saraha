@@ -16,6 +16,9 @@ export const sendMessage = async (req, res, next) => {
     }
   }
 
+  if (!to) {
+    successHandler({ res, status: 404, message: "reciever not found" });
+  }
   let reciever;
   reciever = await findOne(userModel, { _id: to });
 

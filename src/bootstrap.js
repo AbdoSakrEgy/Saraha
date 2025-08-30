@@ -9,7 +9,7 @@ import morgan from "morgan";
 const bootstrap = async (express, app) => {
   await DBconnection();
 
-  app.use(morgan('combined'))
+  // app.use(morgan('dev'))
   app.use("/uploads", express.static("./uploads"));
   app.use(cors());
   app.use(express.json());
@@ -23,9 +23,11 @@ const bootstrap = async (express, app) => {
   });
 
   app.listen(process.env.PORT, () => {
-    console.log(chalk.bgRed.yellow.italic("Backend server is running."));
+    console.log("Backend server is running.");
     console.log(
-      "==========================================================================="
+      chalk.green(
+        "==========================================================================="
+      )
     );
   });
 };

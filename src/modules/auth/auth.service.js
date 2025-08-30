@@ -15,39 +15,57 @@ import revokeTokenModel from "../../DB/models/revokeToken.model.js";
 // register
 export const register = async (req, res, next) => {
   const { name, email, password, age, role, gender, phone } = req.body;
-  const user = await findOne(userModel, { email }); // {}||null
-  if (!user) {
+  const isUserExist = await findOne(userModel, { email }); // {}||null
+  if (!isUserExist) {
     const otp = createOtp();
-    const user = await create(userModel, {
-      name,
-      email,
-      password,
-      age,
-      role,
-      gender,
-      phone,
-      emailOtp: {
-        otp,
-        expiredIn: Date.now() + 120 * 1000,
-      },
-    });
-    const payload = {
-      id: user._id,
-      email: user.email,
-    };
-    const jwtid = nanoid();
-    const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
-      expiresIn: "1 h",
-      jwtid,
-    });
-    const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
-      expiresIn: "7 d",
-      jwtid,
-    });
     // Send email
-    const html = template(otp, user.name, "Confirm email");
-    await sendEmail({ to: user.email, subject: "sarahaApp", html });
-    successHandler({ res, status: 201, data: { accessToken, refreshToken } });
+    const html = template(otp, name, "Confirm email");
+    const { ok, info, error } = await sendEmail({
+      to: email,
+      subject: "sarahaApp",
+      html,
+    });
+    if (ok) {
+      const user = await create(userModel, {
+        name,
+        email,
+        password,
+        age,
+        role,
+        gender,
+        phone,
+        emailOtp: {
+          otp,
+          expiredIn: Date.now() + 120 * 1000,
+        },
+      });
+      const payload = {
+        id: user._id,
+        email: user.email,
+      };
+      const jwtid = nanoid();
+      const accessToken = jwt.sign(payload, process.env.ACCESS_SEGNATURE, {
+        expiresIn: "1 h",
+        jwtid,
+      });
+      const refreshToken = jwt.sign(payload, process.env.REFRESH_SEGNATURE, {
+        expiresIn: "7 d",
+        jwtid,
+      });
+      successHandler({
+        res,
+        status: 201,
+        message: "User created successfully",
+        data: { accessToken, refreshToken },
+      });
+    } else {
+      successHandler({
+        res,
+        status: 400,
+        message: "Error while checking email",
+        data: error,
+      });
+    }
   } else {
     successHandler({
       res,
