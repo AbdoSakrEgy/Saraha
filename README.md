@@ -1,6 +1,6 @@
 # 📨 Anonymous Messaging Backend (Sarahah Clone)
 
-This is the backend server for an anonymous messaging platform (similar to [Sarahah](https://www.sarahah.com/)), where users can receive anonymous feedback from others.
+Anonymous messaging app backend with authentication & data persistence.
 
 ---
 
